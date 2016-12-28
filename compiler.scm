@@ -1,3 +1,4 @@
+;; works
 (define eliminate-nested-defines
    (lambda (parsed_exp)
          (if (not (should_be_eliminated? parsed_exp)) ;what is the condition exactly?
@@ -9,17 +10,23 @@
             	   (defs_list (car defs_exps_list)))
              	(if (null? defs_list)
              		parsed_exp
-             		(let ((applic_exp (create_applic defs_exps_list)))
-					  `(,parsed_exp_begining ,applic_exp)))))))
+             		(let* ((applic_exp (create_applic defs_exps_list))
+					 	   (def (car parsed_exp))
+			  			   (vars (cadr parsed_exp))
+						   (lambda_all (cddr parsed_exp))
+						   (lambda_type (caar lambda_all))
+						   (lambda_vars (cadar lambda_all)))
+             			`(,def ,vars (,lambda_type ,lambda_vars ,applic_exp))))))))
 
-(define take_beginning
-	(lambda (parsed_exp)
-		(let* ((def (car parsed_exp))
-			   (vars (cadr parsed_exp))
-			   (lambda_all (cddr parsed_exp))
-			   (lambda_type (caar lambda_all))
-			   (lambda_vars (cadar lambda_all)))
-			`(,def ,vars (,lambda_type ,lambda_vars)))))
+; ;; works
+; (define take_beginning
+; 	(lambda (parsed_exp)
+; 		(let* ((def (car parsed_exp))
+; 			   (vars (cadr parsed_exp))
+; 			   (lambda_all (cddr parsed_exp))
+; 			   (lambda_type (caar lambda_all))
+; 			   (lambda_vars (cadar lambda_all)))
+; 			`(,def ,vars (,lambda_type ,lambda_vars ,applic_exp)))))
 
 
 ;; works
