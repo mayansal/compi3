@@ -1,35 +1,34 @@
-;; works
+(load "parser.scm")
+
+;TDL:
+; hw2 completion - handle nested begin.
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Eliminate-Nested-Defines;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define eliminate-nested-defines
-   (lambda (parsed_exp)
-         (if (not (should_be_eliminated? parsed_exp)) ;what is the condition exactly?
-             parsed_exp
-            (let* ((def_lambda (find_def_value parsed_exp))
-            	   (parsed_exp_beginning (take_beginning parsed_exp))
-            	   (lambda_body (find_lambda_body def_lambda))
+	(lambda (parsed_exp)
+		(if (or (null? parsed_exp) (atom? parsed_exp))
+			parsed_exp
+			(if (should_be_eliminated? parsed_exp)	;are you lambda expression?
+				(let ((eliminated_lambda_exp (eliminate-nested-defines-helper parsed_exp)))
+				   (cons (car eliminated_lambda_exp)
+				   	     (eliminate-nested-defines (cdr eliminated_lambda_exp))))
+				(cons (eliminate-nested-defines (car parsed_exp))
+					  (eliminate-nested-defines (cdr parsed_exp)))))))
+
+(define eliminate-nested-defines-helper
+   (lambda (parsed_lambda_exp)
+            (let* ((lambda_body (find_lambda_body parsed_lambda_exp)) ;returns inside list
             	   (defs_exps_list (build_list lambda_body (lambda (ds es) (list ds es))))
             	   (defs_list (car defs_exps_list)))
              	(if (null? defs_list)
-             		parsed_exp
+             		parsed_lambda_exp
              		(let* ((applic_exp (create_applic defs_exps_list))
-					 	   (def (car parsed_exp))
-			  			   (vars (cadr parsed_exp))
-						   (lambda_all (cddr parsed_exp))
-						   (lambda_type (caar lambda_all))
-						   (lambda_vars (cadar lambda_all)))
-             			`(,def ,vars (,lambda_type ,lambda_vars ,applic_exp))))))))
+						   (lambda_type (car parsed_lambda_exp))
+						   (lambda_vars (find_lambda_vars parsed_lambda_exp)))
+             			`(,lambda_type ,@lambda_vars ,applic_exp))))))
 
-; ;; works
-; (define take_beginning
-; 	(lambda (parsed_exp)
-; 		(let* ((def (car parsed_exp))
-; 			   (vars (cadr parsed_exp))
-; 			   (lambda_all (cddr parsed_exp))
-; 			   (lambda_type (caar lambda_all))
-; 			   (lambda_vars (cadar lambda_all)))
-; 			`(,def ,vars (,lambda_type ,lambda_vars ,applic_exp)))))
-
-
-;; works
 (define create_applic
 	(lambda (defs_exps_list)
 		(let* ((defs_list (car defs_exps_list))
@@ -43,12 +42,10 @@
 				,lambda_simple_body)
 				,falses_list))))
 
-;; works
 (define create_set
 	(lambda (def_element)
 		`(set ,(cadr def_element) ,(caddr def_element))))
 
-;; works
 (define create_falses_list
 	(lambda (args_count)
 		(letrec ((recursive_create_falses_list
@@ -59,7 +56,6 @@
 														  (cons `(const #f) acc))))))
 			(recursive_create_falses_list  args_count  (list)))))
                 
-
 (define build_list
     (lambda (pes ret_des+exprs)
         (if (null? pes)
@@ -78,18 +74,18 @@
 
 (define should_be_eliminated?
 	(lambda (parsed_exp)
-		(if (not (equal? (car parsed_exp) 'def))
-			#f
-			(let ((def_body (find_def_value parsed_exp)))
-				 (or (equal? (car def_body) 'lambda-simple)
-				 	(equal? (car def_body) 'lambda-opt)
-				 	(equal? (car def_body) 'lambda-var))))))
-
-
-(define find_def_value
-	(lambda (def_parsed_exp)
-		(caddr def_parsed_exp)))
+		 (or (equal? (car parsed_exp) 'lambda-simple)
+      		 (equal? (car parsed_exp) 'lambda-opt)
+			 (equal? (car parsed_exp) 'lambda-var))))
 
 (define find_lambda_body
 	(lambda (lambda_expr)
-		(cddr lambda_expr)))
+		(if (equal? (car lambda_expr) 'lambda-opt)
+			(cdddr lambda_expr)
+            (cddr lambda_expr))))
+
+(define find_lambda_vars
+	(lambda (lambda_expr)
+		(if (equal? (car lambda_expr) 'lambda-opt)
+			(list (cadr lambda_expr) (caddr lambda_expr))  
+			(list (cadr lambda_expr)))))
