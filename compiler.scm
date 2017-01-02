@@ -106,7 +106,7 @@
 (define remove-applic-lambda-nil-helper
 	(lambda (redundant_parsed_exp)
 		(let* ((lambda_nil (cadr redundant_parsed_exp))
-			   (lambda_nil_body (caddr lambda-nil)))
+			   (lambda_nil_body (caddr lambda_nil)))
 			lambda_nil_body)))
 
 (define is_redundant?
