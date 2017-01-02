@@ -1,10 +1,10 @@
 (load "parser.scm")
 
 ;TDL:
-; hw2 completion - handle nested begin.
+; hw2 completion - handle nested begin. beginSeq
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Eliminate-Nested-Defines;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Eliminate-Nested-Defines ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define eliminate-nested-defines
 	(lambda (parsed_exp)
@@ -12,7 +12,7 @@
 			parsed_exp
 			(if (should_be_eliminated? parsed_exp)	;are you lambda expression?
 				(let ((eliminated_lambda_exp (eliminate-nested-defines-helper parsed_exp)))
-				   (cons (car eliminated_lambda_exp)
+				   (cons (car eliminated_lambda_exp) 
 				   	     (eliminate-nested-defines (cdr eliminated_lambda_exp))))
 				(cons (eliminate-nested-defines (car parsed_exp))
 					  (eliminate-nested-defines (cdr parsed_exp)))))))
@@ -89,3 +89,30 @@
 		(if (equal? (car lambda_expr) 'lambda-opt)
 			(list (cadr lambda_expr) (caddr lambda_expr))  
 			(list (cadr lambda_expr)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Remove-Applic-Lambda-Nil ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define remove-applic-lambda-nil 
+	(lambda (parsed_exp)
+		(if (or (null? parsed_exp)(atom? parsed_exp))
+			parsed_exp
+			(if (is_redundant? parsed_exp)	;are you applic lambda-nil expression?
+				(let ((lambda_nil_body (remove-applic-lambda-nil-helper parsed_exp)))
+				   (remove-applic-lambda-nil  lambda_nil_body))
+				(cons (remove-applic-lambda-nil  (car parsed_exp))
+					  (remove-applic-lambda-nil  (cdr parsed_exp)))))))
+
+(define remove-applic-lambda-nil-helper
+	(lambda (redundant_parsed_exp)
+		(let* ((lambda_nil (cadr redundant_parsed_exp))
+			   (lambda_nil_body (caddr lambda-nil)))
+			lambda_nil_body)))
+
+(define is_redundant?
+	(lambda (parsed_exp)
+		(if (and (equal? (car parsed_exp) 'applic)
+				 (equal? (caadr parsed_exp) 'lambda-simple)
+				 (equal? (cadadr parsed_exp) (list)))
+			#t
+			#f)))
