@@ -74,9 +74,11 @@
 
 (define is_lambda_exp?
 	(lambda (parsed_exp)
-		 (or (equal? (car parsed_exp) 'lambda-simple)
-      		 (equal? (car parsed_exp) 'lambda-opt)
-			 (equal? (car parsed_exp) 'lambda-var))))
+		(if (null? parsed_exp)
+			#f
+			 (or (equal? (car parsed_exp) 'lambda-simple)
+	      		 (equal? (car parsed_exp) 'lambda-opt)
+				 (equal? (car parsed_exp) 'lambda-var)))))
 
 (define find_lambda_body
 	(lambda (lambda_expr)
@@ -119,7 +121,6 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Box-Set ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (define box-set 
 	(lambda (parsed_exp)
 		(if (or (null? parsed_exp)(atom? parsed_exp))
@@ -135,12 +136,13 @@
     (lambda (parsed_lambda_exp)
         (let* ((lambda_body (find_lambda_body parsed_lambda_exp)) ;returns inside list
                (lambda_vars (find_lambda_vars parsed_lambda_exp)) ;returns inside list
-               (should_box_vars (filter (should_box_var? lambda_body) lambda_vars)))
+               (should_box_vars (filter (should_box_var? lambda_body) (car lambda_vars))))
             (if (null? should_box_vars)
                 parsed_lambda_exp
                 (let* ((boxed_body_exp (put_boxes should_box_vars lambda_body))
-                        (lambda_type (car parsed_lambda_exp)))
-                    `(,lambda_type ,@lambda_vars ,boxed_body_exp))))))
+                	   (body_sets_and_boxes (create_set_box_body should_box_vars boxed_body_exp))
+                       (lambda_type (car parsed_lambda_exp)))
+                    `(,lambda_type ,@lambda_vars  ,body_sets_and_boxes))))))
             
 (define should_box_var?
     (lambda (lambda_body)
@@ -151,88 +153,125 @@
                 #t
                 #f))))
                 
-(define is_get_exp_for_var?
+(define is_exist_get?
     (lambda (exp_part suspected_var)
-;;         (cond ((null? exp_part) #f)
-;;               ((equal? exp_part `(var ,suspected_var)) #t)
-;;               ((atom? exp_part) #f)
-;;               ((and (equal? (car exp_part) 'set) 
-;;                     (equal? (cadr exp_part) suspected_var))
-;;                #f)
-;;               ((and (is_lambda_exp? exp_part)
-;;                     (member suspected_var (car (find_lambda_vars exp_part))))
-;;                #f)
-;;               ((member suspected_var exp_part) #t)
-;;               (else (or (is_get_exp_for_var? (cdr exp_part) suspected_var)
-;;                         (is_get_exp_for_var? (car exp_part) suspected_var))))))
- #t))
-;; 
-;; 
-;;                    
+         (cond ((null? exp_part) #f)
+               ((equal? exp_part `(var ,suspected_var)) #t)
+               ((atom? exp_part) #f)
+               ((and (equal? (car exp_part) 'set) 
+                     (equal? (cadadr exp_part) suspected_var))
+                  #f)
+               ((and (is_lambda_exp? exp_part)
+                     (member suspected_var (car (find_lambda_vars exp_part))))
+                  #f)
+               (else (or (is_exist_get? (cdr exp_part) suspected_var)
+                         (is_exist_get? (car exp_part) suspected_var))))))
+
+                    
 (define is_exist_set?
      (lambda (exp_part suspected_var)
         (cond ((null? exp_part) #f)
-              ((atom? exp_part) #f)
+              ((atom? exp_part) #f)              
               ((and (equal? (car exp_part) 'set) 
                     (equal? (cadadr exp_part) suspected_var))
-               #t)
+              	 #t)
+			  ((and (is_lambda_exp? exp_part)
+                    (member suspected_var (car (find_lambda_vars exp_part))))
+			     #f)
               (else (or (is_exist_set? (cdr exp_part) suspected_var)
                         (is_exist_set? (car exp_part) suspected_var))))))
-                    
- (define is_exist_bound?
+                 
+(define is_exist_bound?
      (lambda (exp_part suspected_var)
-        #t))
+        (if (or (null? exp_part) (atom? exp_part))
+        	#f
+        	(if (is_lambda_exp? exp_part)
+        		(is_exist_bound_helper? exp_part suspected_var)
+        		(or (is_exist_bound? (cdr exp_part) suspected_var)
+                	(is_exist_bound? (car exp_part) suspected_var))))))
+
+(define is_exist_bound_helper?
+    (lambda (exp_part suspected_var)
+         (cond ((null? exp_part) #f)
+               ((equal? exp_part `(var ,suspected_var)) #t)
+               ((atom? exp_part) #f)
+               ((and (equal? (car exp_part) 'set) 
+                     (equal? (cadadr exp_part) suspected_var))
+                  #t)
+               ((and (is_lambda_exp? exp_part)
+                     (member suspected_var (car (find_lambda_vars exp_part))))
+                  #f)
+               (else (or (is_exist_bound_helper? (cdr exp_part) suspected_var)
+                         (is_exist_bound_helper? (car exp_part) suspected_var))))))
+
 
 (define put_boxes
     (lambda (should_box_vars lambda_body)
         (if (null? should_box_vars)
             lambda_body
             (put_boxes (cdr should_box_vars)
-                       (put_var_boxes lambda_body (car should_box_vars))))))
+                       (put_var_boxes lambda_body 
+                       				  (car should_box_vars))))))
 
 (define put_var_boxes
     (lambda (lambda_body should_box_var)       
-        (let* ((with_set_boxes (put_set_boxes should_box_var lambda_body))
-               (with_get_and_set_boxes (put_get_boxes should_box_var with_set_boxes)))
+        (let* ((with_set_boxes (put_set_boxes lambda_body should_box_var))
+               (with_get_and_set_boxes (put_get_boxes with_set_boxes should_box_var)))
             with_get_and_set_boxes)))
             
+        
+;returns body with sets for this var
 (define put_set_boxes
-    (lambda (var body)
-        ;return body with sets for this var
-        body))
+     (lambda (exp_part suspected_var)
+        (cond ((or (null? exp_part) (atom? exp_part))
+         		 exp_part)              
+              ((and (equal? (car exp_part) 'set) 
+                    (equal? (cadadr exp_part) suspected_var))
+              	 (cons 'box-set
+              		   (cdr exp_part))) 
+			  ((and (is_lambda_exp? exp_part)
+                    (member suspected_var (car (find_lambda_vars exp_part))))
+			     exp_part)
+              (else (cons (put_set_boxes (car exp_part) suspected_var)
+                          (put_set_boxes (cdr exp_part) suspected_var))))))
+
 
 (define put_get_boxes
-    (lambda (var body)
-        ;return body with gets for this var
-        body))
+    (lambda (exp_part suspected_var)
+         (cond ((null? exp_part) exp_part)
+               ((equal? exp_part `(var ,suspected_var)) 
+               	   (cons 'box-get
+              		   (list exp_part)))
+               ((atom? exp_part) exp_part)
+               ((and (equal? (car exp_part) 'box-set) 
+                     (equal? (cadadr exp_part) suspected_var))
+                  exp_part)
+               ((and (is_lambda_exp? exp_part)
+                     (member suspected_var (car (find_lambda_vars exp_part))))
+                  exp_part)
+               (else (cons (put_get_boxes (car exp_part) suspected_var)
+                           (put_get_boxes (cdr exp_part) suspected_var))))))
 
 
+(define create_set_box_body 
+	(lambda (should_box_vars boxed_body_exp)
+		`(seq ,(append (map make_set should_box_vars)
+				boxed_body_exp))))
+;; could be another seq inside 
+
+(define make_set
+	(lambda (var_to_box)
+		`(set (var ,var_to_box) (box (var ,var_to_box))) ))
 
 
-        
-        
-        
-        
-        
-;;;;;;probably garbage;;;;;
-;; (define is_exist_get?
-;;     (lambda (lambda_body suspected_var)
-;;         (if (null? lambda_body)
-;;             #f
-;;             (if (is_get_exp_for_var? lambda_body suspected_var)
-;;                 #t
-;;                 (let* ((first_exp (car lambda_body))
-;;                        (rest_exp (cdr lambda_body)))
-;;                     (or (is_exist_get? first_exp suspected_var)
-;;                         (is_exist_get? rest_exp suspected_var)))))))
-
-
-
-
-
-
-
-
-
+(define flat_seq
+	(lambda (exp)
+		(if (or (null? exp) (atom? exp))
+			exp
+			(if (equal? (car exp) 'seq)
+				(flat_seq (cadr exp))
+				(cons (flat_seq (car exp))
+					  (flat_seq (cdr exp))))
+			)))
 
 
