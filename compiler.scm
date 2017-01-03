@@ -10,7 +10,7 @@
 	(lambda (parsed_exp)
 		(if (or (null? parsed_exp) (atom? parsed_exp))
 			parsed_exp
-			(if (should_be_eliminated? parsed_exp)	;are you lambda expression?
+			(if (is_lambda_exp? parsed_exp)	;are you lambda expression?
 				(let ((eliminated_lambda_exp (eliminate-nested-defines-helper parsed_exp)))
 				   (cons (car eliminated_lambda_exp) 
 				   	     (eliminate-nested-defines (cdr eliminated_lambda_exp))))
@@ -72,7 +72,7 @@
 		                          (else 
 		                            (ret_des+exprs ds (cons (car pes) es)))))))))
 
-(define should_be_eliminated?
+(define is_lambda_exp?
 	(lambda (parsed_exp)
 		 (or (equal? (car parsed_exp) 'lambda-simple)
       		 (equal? (car parsed_exp) 'lambda-opt)
@@ -116,3 +116,123 @@
 				 (equal? (cadadr parsed_exp) (list)))
 			#t
 			#f)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Box-Set ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define box-set 
+	(lambda (parsed_exp)
+		(if (or (null? parsed_exp)(atom? parsed_exp))
+			parsed_exp
+			(if (is_lambda_exp? parsed_exp)	;are you a lambda?
+				(let ((boxed_lambda (box-set-helper parsed_exp)))
+				   (cons (car boxed_lambda) 
+				   	     (box-set (cdr boxed_lambda))))
+				(cons (box-set (car parsed_exp))
+					  (box-set (cdr parsed_exp)))))))
+					  
+(define box-set-helper
+    (lambda (parsed_lambda_exp)
+        (let* ((lambda_body (find_lambda_body parsed_lambda_exp)) ;returns inside list
+               (lambda_vars (find_lambda_vars parsed_lambda_exp)) ;returns inside list
+               (should_box_vars (filter (should_box_var? lambda_body) lambda_vars)))
+            (if (null? should_box_vars)
+                parsed_lambda_exp
+                (let* ((boxed_body_exp (put_boxes should_box_vars lambda_body))
+                        (lambda_type (car parsed_lambda_exp)))
+                    `(,lambda_type ,@lambda_vars ,boxed_body_exp))))))
+            
+(define should_box_var?
+    (lambda (lambda_body)
+        (lambda (lambda_var)
+            (if (and (is_exist_get? lambda_body lambda_var)
+                     (is_exist_set? lambda_body lambda_var)
+                     (is_exist_bound? lambda_body lambda_var))
+                #t
+                #f))))
+                
+(define is_get_exp_for_var?
+    (lambda (exp_part suspected_var)
+;;         (cond ((null? exp_part) #f)
+;;               ((equal? exp_part `(var ,suspected_var)) #t)
+;;               ((atom? exp_part) #f)
+;;               ((and (equal? (car exp_part) 'set) 
+;;                     (equal? (cadr exp_part) suspected_var))
+;;                #f)
+;;               ((and (is_lambda_exp? exp_part)
+;;                     (member suspected_var (car (find_lambda_vars exp_part))))
+;;                #f)
+;;               ((member suspected_var exp_part) #t)
+;;               (else (or (is_get_exp_for_var? (cdr exp_part) suspected_var)
+;;                         (is_get_exp_for_var? (car exp_part) suspected_var))))))
+ #t))
+;; 
+;; 
+;;                    
+(define is_exist_set?
+     (lambda (exp_part suspected_var)
+        (cond ((null? exp_part) #f)
+              ((atom? exp_part) #f)
+              ((and (equal? (car exp_part) 'set) 
+                    (equal? (cadadr exp_part) suspected_var))
+               #t)
+              (else (or (is_exist_set? (cdr exp_part) suspected_var)
+                        (is_exist_set? (car exp_part) suspected_var))))))
+                    
+ (define is_exist_bound?
+     (lambda (exp_part suspected_var)
+        #t))
+
+(define put_boxes
+    (lambda (should_box_vars lambda_body)
+        (if (null? should_box_vars)
+            lambda_body
+            (put_boxes (cdr should_box_vars)
+                       (put_var_boxes lambda_body (car should_box_vars))))))
+
+(define put_var_boxes
+    (lambda (lambda_body should_box_var)       
+        (let* ((with_set_boxes (put_set_boxes should_box_var lambda_body))
+               (with_get_and_set_boxes (put_get_boxes should_box_var with_set_boxes)))
+            with_get_and_set_boxes)))
+            
+(define put_set_boxes
+    (lambda (var body)
+        ;return body with sets for this var
+        body))
+
+(define put_get_boxes
+    (lambda (var body)
+        ;return body with gets for this var
+        body))
+
+
+
+
+        
+        
+        
+        
+        
+;;;;;;probably garbage;;;;;
+;; (define is_exist_get?
+;;     (lambda (lambda_body suspected_var)
+;;         (if (null? lambda_body)
+;;             #f
+;;             (if (is_get_exp_for_var? lambda_body suspected_var)
+;;                 #t
+;;                 (let* ((first_exp (car lambda_body))
+;;                        (rest_exp (cdr lambda_body)))
+;;                     (or (is_exist_get? first_exp suspected_var)
+;;                         (is_exist_get? rest_exp suspected_var)))))))
+
+
+
+
+
+
+
+
+
+
+
