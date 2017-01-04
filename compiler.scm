@@ -204,7 +204,6 @@
                (else (or (is_exist_bound_helper? (cdr exp_part) suspected_var)
                          (is_exist_bound_helper? (car exp_part) suspected_var))))))
 
-
 (define put_boxes
     (lambda (should_box_vars lambda_body)
         (if (null? should_box_vars)
@@ -274,4 +273,91 @@
 					  (flat_seq (cdr exp))))
 			)))
 
+			
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Pe->Lex-Pe ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define pe->lex-pe
+	(lambda (parsed_exp)
+        (let ((with_pvar_and_bvar (pe->lex-pe-core parsed_exp)))
+            (add_fvars with_pvar_and_bvar))))		
+
+(define pe->lex-pe-core
+	(lambda (parsed_exp)
+		(if (or (null? parsed_exp)(atom? parsed_exp))
+			parsed_exp
+			(if (is_lambda_exp? parsed_exp)	;are you a lambda?
+				(let ((lex_lambda (pe->lex-pe-helper parsed_exp)))
+				   (cons (car lex_lambda) 
+				   	     (pe->lex-pe-core (cdr lex_lambda))))
+				(cons (pe->lex-pe-core (car parsed_exp))
+					  (pe->lex-pe-core (cdr parsed_exp)))))))					  
+					  
+(define pe->lex-pe-helper
+    (lambda (parsed_lambda_exp)
+        (let* ((lambda_body (find_lambda_body parsed_lambda_exp)) ;returns inside list
+               (lambda_vars (find_lambda_vars parsed_lambda_exp))) ;returns inside list
+            (if (null? lambda_vars)
+                parsed_lambda_exp
+                (let* ((lex_body (update_vars lambda_vars lambda_body))
+                       (lambda_type (car parsed_lambda_exp)))
+                    `(,lambda_type ,@lambda_vars  ,lex_body))))))
+                    
+(define update_vars
+    (lambda (lambda_vars lambda_body)
+        (if (null? lambda_vars)
+            lambda_body
+            (update_vars (cdr lambda_vars)
+                         (put_var_params_bounds lambda_body 
+                                                (car lambda_vars))))))
+                                                
+(define put_var_params_bounds
+    (lambda (lambda_body var)       
+        (let* ((with_pvar (put_pvar lambda_body var))
+               (with_pvar_and_bvar (put_bvar with_pvar var)))
+            with_pvar_and_bvar)))
+
+;find all apperances of var as the current lambda parameter
+(define put_pvar
+    (lambda (exp_part var)
+        (cond ((null? exp_part) exp_part)
+              ((equal? exp_part `(var ,var))  
+                  `(pvar ,var))
+              ((atom? exp_part) exp_part)
+              ((and (equal? (car exp_part) 'box-set)           
+                    (equal? (cadadr exp_part) var))  
+                `(set (pvar ,var) ,(caddr exp_part)))
+              ((equal? (car exp_part) 'box)           
+                    exp_part)
+              ((is_lambda_exp? exp_part)
+                exp_part)
+              (else (cons (put_pvar (car exp_part) var)
+                          (put_pvar (cdr exp_part) var))))))
+                          
+(define put_bvar
+    (lambda (exp_part var)
+        exp_part))
+        
+        
+(define add_fvars
+    (lambda (exp_pbvars)
+        (cond ((null? exp_pbvars) exp_pbvars)
+              ((equal? (car exp_pbvars) 'var)
+                   `(fvar ,(cdr exp_pbvars)))
+              ((atom? exp_pbvars) exp_pbvars)
+;;            ((and (equal? (car exp_part) 'box-set)           
+;;                  (equal? (cadadr exp_part) var))  
+;;                `(set (pvar ,var) ,(caddr exp_part)))
+;;            ((equal? (car exp_part) 'box)           
+;;                         exp_part)
+              (else (cons (add_fvars (car exp_pbvars))
+                          (add_fvars (cdr exp_pbvars)))))))
+        
+    
+					  
+					  
+					  
+					  
+					  
+					  
+					  
+					  
