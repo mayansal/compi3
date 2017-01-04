@@ -1,5 +1,48 @@
    
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  pbf vars   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(add_fvars (put_pvar (find_lambda_body (box-set (remove-applic-lambda-nil (parse '(lambda (a) (set! a 3)
+            a
+            (lambda () a))))))
+          'a
+          0))
+
+(pe->lex-pe
+  (box-set 
+    (remove-applic-lambda-nil 
+      (eliminate-nested-defines 
+        (parse 
+
+        '
+ (lambda (x) (set! x 6) (lambda (y) x))
+
+          )))))
+
+
+ (lambda (x) (set! x 6) (lambda (y) x))
+
+  (pe->lex-pe (parse '(lambda (a . d) a d e)))
+
+   (pe->lex-pe '(set! x (f 1)))
+
+ (find_lambda_vars_op (parse '(lambda (a . d) a)))
+
+(put_pvar  (parse '(lambda (a) (set! a 3)
+            a
+            (lambda () a)))
+          'a)
+
+
+(a)
+
+(find_lambda_vars (parse '(lambda (a b) a)))
+
+(find_lambda_vars (parse '(lambda (a . b) a)))
+
+
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  box   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
